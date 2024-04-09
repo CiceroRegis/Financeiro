@@ -47,4 +47,18 @@ public class ValidationExceptionHandler {
 	    return ResponseEntity.badRequest().body(errorResponse);
 	}
 
+	@ResponseStatus(HttpStatus.PRECONDITION_FAILED)
+	@ExceptionHandler(RuntimeValidationException.class)
+	public ResponseEntity<Object> handleUniqueException(RuntimeValidationException ex) {
+		Map<String, Object> errorResponse = new HashMap<>();
+		errorResponse.put("timestamp", ex.getTimestamp());
+		errorResponse.put("status", ex.getStatus());
+		errorResponse.put("error", ex.getError());
+		errorResponse.put("message", ex.getMessage());
+		errorResponse.put("sucesso", ex.getSucesso());
+
+		return ResponseEntity.status(ex.getStatus()).body(errorResponse);
+	}
+
+
 }

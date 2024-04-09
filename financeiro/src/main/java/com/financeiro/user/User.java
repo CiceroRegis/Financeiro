@@ -2,9 +2,11 @@ package com.financeiro.user;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
@@ -13,9 +15,12 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Setter
 @Getter
@@ -31,21 +36,23 @@ public class User implements Serializable {
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	private Long id;
 
-	@NotNull(message = "Nome não informado")
+	@NotBlank(message = "Nome não informado")
 	private String name;
 
-	@NotNull(message = "E-mail não informado")
+	@NotBlank(message = "E-mail não informado")
 	@Column(unique = true)
 	private String email;
 
 	@Column(unique = true)
-	@NotNull(message = "Login não informado")
+	@NotBlank(message = "Login não informado")
 	private String login;
 
-	@NotNull(message = "Login não informado")
+	@NotBlank(message = "Senha não informada")
 	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
 	private String password;
 
+
+	@JsonFormat(pattern = "yyyy-MM-dd")
 	private Date birthday;
 
 	private String fone;
@@ -53,6 +60,14 @@ public class User implements Serializable {
 	private String language;
 
 	private boolean active;
+
+	@JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+	@CreationTimestamp
+	private Date createUser;
+
+	@JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+	@UpdateTimestamp
+	private Date updateUser;
 	
 	public User() {}
 

@@ -6,16 +6,11 @@ import java.util.List;
 
 import org.hibernate.service.spi.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -32,31 +27,34 @@ import jakarta.validation.Valid;
 public class UserController {
 
 	private static final String SUCCESS = "sucesso";
-	private static final String MESSAGE = "mensagem";
+	private static final String MESSAGE = "message";
 
 	@Autowired
 	private UserService userService;
 
-	@PostMapping("list/users")
-	public ResponseEntity<HashMap<String, Object>> listlAll() {
-
+	@GetMapping("list/users")
+	public ResponseEntity<HashMap<String, Object>> listAll(@RequestParam(defaultValue = "0") int page,
+														   @RequestParam(defaultValue = "10") int size) {
 		HashMap<String, Object> response = new HashMap<>();
-		List<User> users = new ArrayList<User>();
 		try {
-			users = userService.listAll();
+			Page<User> usersPage = userService.listAll(page, size);
+			List<User> users = usersPage.getContent();
+			response.put(SUCCESS, true);
+			response.put("users", users);
+			response.put("total_usuários", usersPage.getTotalElements());
+			response.put("total_páginas", usersPage.getTotalPages());
+			return ResponseEntity.ok().body(response);
 		} catch (EntityNotFoundException e) {
 			response.put(SUCCESS, false);
 			response.put(MESSAGE, e.getMessage());
-			return ResponseEntity.status((HttpStatus) HttpStatus.NOT_FOUND).body(response);
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
 		} catch (ServiceException e) {
 			response.put(SUCCESS, false);
 			response.put(MESSAGE, e.getMessage());
-			return ResponseEntity.status((HttpStatus) HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
 		}
-		response.put(SUCCESS, true);
-		response.put("Lista de usuarios: ", users);
-		return ResponseEntity.ok().body(response);
 	}
+
 
 	@PostMapping("save/user")
 	public ResponseEntity<Object> saveUser(@Valid @RequestBody User user) {
@@ -112,4 +110,29 @@ public class UserController {
 	    response.put("Status atualizado", user.isActive());
 	    return ResponseEntity.ok().body(response);
     }
+
+
+
+	@GetMapping(value = "getById/user/{id}")
+	public ResponseEntity<Object> getById(@PathVariable Long id) {
+
+		HashMap<String, Object> response = new HashMap<>();
+		User user = new User();
+		try {
+			user = userService.getById(id);
+		} catch (EntityNotFoundException e) {
+			response.put(SUCCESS, false);
+			response.put(MESSAGE, e.getMessage());
+			return ResponseEntity.status((HttpStatus) HttpStatus.NOT_FOUND).body(response);
+		} catch (ServiceException e) {
+			response.put(SUCCESS, false);
+			response.put(MESSAGE, e.getMessage());
+			return ResponseEntity.status((HttpStatus) HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+		}
+		response.put(SUCCESS, true);
+		response.put("user", user);
+		return ResponseEntity.ok().body(response);
+
+	}
+
 }

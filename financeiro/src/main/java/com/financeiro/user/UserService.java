@@ -1,86 +1,104 @@
 package com.financeiro.user;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
+import com.financeiro.exceptions.RuntimeValidationException;
 import org.hibernate.service.spi.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-//import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.financeiro.exceptions.ResourceNotFoundException;
-import com.financeiro.utils.LoggerWrapper;
 
 import jakarta.persistence.EntityNotFoundException;
+
+import static com.financeiro.utils.LoggerWrapper.*;
 
 @Service
 public class UserService {
 
-	@Autowired
-	public UserRepository repository;
+    @Autowired
+    public UserRepository repository;
 
-	public List<User> listAll() {
-		List<User> user = new ArrayList<User>();
-		try {
-			user = repository.findAll(Sort.by(Sort.Direction.ASC, "name"));
-			if (user.isEmpty()){
-				LoggerWrapper.logWarn("A lista de usuarios esta vazia");
-			}
-		} catch (Exception e) {
-			LoggerWrapper.logError("Erro ao lista usuario", e);
-			throw new ServiceException("Erro ao lista usuario", e);
-		}
-		return user;
-	}
 
-	public Optional<User> findByLogin(String login) {
-		return this.repository.findByLogin(login);
-	}
+    public Page<User> listAll(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name"));
+        Page<User> users = repository.findAll(pageable);
+        if (users.isEmpty()) {
+            throw new RuntimeValidationException("Nenhum usuario cadastrado");
+        }
+        return users;
+    }
 
-	public User saveUser(User user) {
-		BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-		try {
-			LoggerWrapper.logInfo("Incriptando Senha");
-			user.setPassword(encoder.encode(user.getPassword()));
-			user.setActive(true);
-			LoggerWrapper.logInfo("Salvando user...");
-			repository.save(user);
-			LoggerWrapper.logInfo("Usuário salvo com sucesso");
-		} catch (Exception e) {
-			LoggerWrapper.logError("Erro ao salvar usuario ", e);
-			throw new ServiceException("Erro ao salvar usuario", e);
-		}
-		return user;
-	}
+    public Optional<User> findByLogin(String login) {
+        return this.repository.findByLogin(login);
+    }
 
-	public User updateUser(Long id, User obj) {
+    public User getById(Long id) {
+        Optional<User> optionalUser = repository.findById(id);
+        return optionalUser.orElse(null);
+    }
 
-		try {
+    public User saveUser(User user) {
+        validateUserUniqueFields(user.getEmail(), user.getLogin());
 
-			User user = repository.getReferenceById(id);
-			dataEdit(user, obj);
-			return repository.save(user);
-		} catch (EntityNotFoundException e) {
-			LoggerWrapper.logError("Erro ao editar usuario ", e);
-			throw new ResourceNotFoundException(id);
-		}
-	}
+        try {
+            encryptPassword(user);
+            user.setActive(true);
+            logInfo("Salvando usuário...");
+            return repository.save(user);
+        } catch (Exception e) {
+            logError("Erro ao salvar usuário ", e);
+            throw new ServiceException("Erro ao salvar usuário", e);
+        }
+    }
 
-	private void dataEdit(User user, User obj) {
-		user.setName(obj.getName());
-		user.setEmail(obj.getEmail());
-		user.setLogin(obj.getLogin());
-		user.setPassword(obj.getPassword());
-		user.setActive(obj.isActive());
-	}
+    public User updateUser(Long id, User updatedUser) {
+        validateUserUniqueFields(updatedUser.getEmail(), updatedUser.getLogin());
 
-	public User toggleActiveStatus() {
-	    User user = new User();
-	    user.setActive(!user.isActive());
-	    return repository.save(user);
-	}
+        try {
+            User user = repository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException(id));
+            updateUserData(user, updatedUser);
+            return repository.save(user);
+        } catch (ResourceNotFoundException e) {
+            logError("Usuário não encontrado para atualização ", e);
+            throw e;
+        }
+    }
 
+    private void validateUserUniqueFields(String email, String login) {
+        if (repository.findByEmail(email).isPresent()) {
+            logWarn("Já existe um usuário cadastrado com esse e-mail");
+            throw new RuntimeValidationException("Já existe um usuário cadastrado com esse e-mail");
+        }
+        if (repository.findByLogin(login).isPresent()) {
+            logWarn("Já existe um usuário cadastrado com esse login");
+            throw new RuntimeValidationException("Já existe um usuário cadastrado com esse login");
+        }
+    }
+
+    private void encryptPassword(User user) {
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+        String encodedPassword = encoder.encode(user.getPassword());
+        user.setPassword(encodedPassword);
+    }
+
+    private void updateUserData(User user, User updatedUser) {
+        user.setName(updatedUser.getName());
+        user.setEmail(updatedUser.getEmail());
+        user.setLogin(updatedUser.getLogin());
+        user.setActive(updatedUser.isActive());
+    }
+
+
+    public User toggleActiveStatus() {
+        User user = new User();
+        user.setActive(!user.isActive());
+        return repository.save(user);
+    }
 }
